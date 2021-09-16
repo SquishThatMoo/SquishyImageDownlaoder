@@ -353,16 +353,18 @@ function toBool(str) {
             return null;
     }
 }
-function generateKbd(commands) { 
+function generateKbd(commands) {
     if (commands) {
         for (let i=0; i < commands.length; i++) {
-            let keys = commands[i].shortcut.match(/\w+/g);
-            keys = keys.map(key => wrapElement("kbd", key));
-            keys = keys.join(' + ');
-            
-            let targetEl = document.getElementById(commands[i].name);
-            if (targetEl?.innerHTML !== undefined) {
-                targetEl.innerHTML = keys;
+            if (commands[i].shortcut !== '') {
+                let keys = commands[i].shortcut.match(/\w+/g);
+                keys = keys.map(key => wrapElement("kbd", key));
+                keys = keys.join(' + ');
+                
+                let targetEl = document.getElementById(commands[i].name);
+                if (targetEl?.innerHTML !== undefined) {
+                    targetEl.innerHTML = keys;
+                }
             }
         }
     }

@@ -38,8 +38,11 @@ squishImageSaver = (() => {
         max: 4000
     };
     let currentSettings = JSON.parse(JSON.stringify(defaultSettings));
+    
     chrome.storage.sync.get(['squishImageSaver'], result => {
-        currentSettings = validateSettings(result?.squishImageSaver?.settings);
+        if (result?.squishImageSaver?.settings !== undefined || result?.squishImageSaver?.settings != null) {
+            currentSettings = validateSettings(result.squishImageSaver.settings);
+        }
     });
 
     let startSleep = 0;
@@ -59,8 +62,9 @@ squishImageSaver = (() => {
                 if (tab !== undefined || tab != null) {
                     let matchedDomain = false;
                     let domain = '';
+                    let url = '';
                     try {
-                        let url = new URL(tab.url);
+                        url = new URL(tab.url);
                         domain = url.hostname;                  
                     } catch (e) {
                         console.log('Illegal url.', e)
@@ -110,8 +114,11 @@ squishImageSaver = (() => {
 
     async function getCurrentTab() {
         let queryOptions = { active: true, currentWindow: true };
-        let [tab] = await chrome.tabs.query(queryOptions);
+        let [tab] = await asyncTabsQuery(queryOptions);
         return tab;
+    }
+    function asyncTabsQuery(queryOptions) {
+        return new Promise(resolve => chrome.tabs.query(queryOptions, resolve));
     }
 
     chrome.runtime.onMessage.addListener(
@@ -149,21 +156,25 @@ squishImageSaver = (() => {
                             listenToExternalDownload = true;
                         }
                     } else {
-                        chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-                            chrome.tabs.sendMessage(tabs[0].id, {squishImageSaver: {mediaData: mediaItem, downloadInExtension: squishImageSaver?.downloadInExtension}}, function(response) {
-                              console.log(response);
-                            });
+                        getCurrentTab().then(tab => {
+                            if (tab !== undefined || tab != null) {
+                                chrome.tabs.sendMessage(tab.id, {squishImageSaver: {mediaData: mediaItem, downloadInExtension: squishImageSaver?.downloadInExtension}}, function(response) {
+                                console.log(response);
+                                });
+                            }
                         });
                     }
                     
                     response += ` Downloaded ${downloaded}.`;
                 }
                 if (squishImageSaver?.pageReady && waitForSauce !== '') {
-                    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-                        chrome.tabs.sendMessage(tabs[0].id, {squishImageSaver: {scrape: 'saucenao', href: waitForSauce}}, function(response) {
-                            waitForSauce = '';
-                            console.log(response);
-                        });
+                    getCurrentTab().then(tab => {   
+                        if (tab !== undefined || tab != null) {
+                            chrome.tabs.sendMessage(tab.id, {squishImageSaver: {scrape: 'saucenao', href: waitForSauce}}, function(response) {
+                                waitForSauce = '';
+                                console.log(response);
+                            });
+                        }
                     });
                     response += "Status Received.";      
                 }
@@ -391,5 +402,3 @@ squishImageSaver = (() => {
         return settings;
     }
 }) ();
-
-squishImageSaver;

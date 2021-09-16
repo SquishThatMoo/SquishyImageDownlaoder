@@ -38,8 +38,6 @@
         settings = result;
     });
     
-    
-
     let isDown = false;
     let offset = [];
     let mediaData = [];
@@ -477,16 +475,35 @@
         let artStage = document.querySelectorAll('[data-hook="art_stage"]')        
         //only do stuff if it is an art page
         if (artStage.length !== 0) {
-            let authorNode = document.querySelector('div [data-hook="deviation_meta"] a');
-            let titleNode = document.querySelector('h1[data-hook="deviation_title"]');
-            let imageNode = document.querySelector('[data-hook="art_stage"] img');
-            let videoNode = document.querySelector('video');
-            
-            let result = {
-                author: authorNode.getAttribute('title'),
-                title: titleNode.textContent,
-                href: imageNode?.src || videoNode?.src
-            };        
+            let deviationID = parseInt(document.querySelector('[data-itemid]')?.getAttribute('data-itemid'));
+            let deviationURL = new URL('https://www.deviantart.com/_napi/da-user-profile/shared_api/deviation/extended_fetch');
+            let result = {}
+
+            if (deviationID !== NaN) {
+                let params = {type: 'art', deviationid: deviationID};
+                Object.keys(params).forEach(key => deviationURL.searchParams.append(key, params[key]));
+
+                let galleryContent = await fetch(deviationURL, {method: 'GET'});
+                galleryContent = await galleryContent.json();
+
+                result = {
+                    author: galleryContent?.deviation?.author?.username,
+                    title: galleryContent?.deviation?.title,
+                    href: createFullURL(galleryContent?.deviation?.media)
+                } 
+                console.log(result);
+            } else {
+                let authorNode = document.querySelector('div [data-hook="deviation_meta"] a');
+                let titleNode = document.querySelector('h1[data-hook="deviation_title"]');
+                let imageNode = document.querySelector('[data-hook="art_stage"] img');
+                let videoNode = document.querySelector('video');
+                
+                result = {
+                    author: authorNode.getAttribute('title'),
+                    title: titleNode.textContent,
+                    href: imageNode?.src || videoNode?.src
+                };   
+            }                           
             
             //check if there is a download button
             let downloadNode = document.querySelector('a[data-hook="download_button"]');
@@ -496,6 +513,19 @@
             } else {
                 sendToBackend({mediaData: result, downloadInExtension: true});
             }    
+        }
+
+        function createFullURL(media) {
+            if (media !== undefined || media.length > 0)  {
+                let url = new URL(media.baseUri);
+                let subpathObject = media.types.filter(type => type.t === 'fullview');
+                if (subpathObject.c) {
+                    let subpath = subpathObject.c.replace('<prettyName>', media.prettyName);
+                    url.pathname += subpath;
+                }
+                url.searchParams.append('token', media.token[0])
+                return url.href;
+            }
         }
     }
 
