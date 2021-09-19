@@ -363,22 +363,22 @@ function generateKbd(commands) {
     if (commands) {
         for (let i=0; i < commands.length; i++) {
             if (commands[i].shortcut !== '') {
-                let keys = commands[i].shortcut.match(/\w+/g);
-                keys = keys.map(key => wrapElement("kbd", key));
-                keys = keys.join(' + ');
-                
                 let targetEl = document.getElementById(commands[i].name);
-                if (targetEl?.innerHTML !== undefined) {
-                    targetEl.innerHTML = keys;
+                
+                if (targetEl) {
+                    targetEl.textContent = '';
+                    let keys = commands[i].shortcut.match(/\w+/g);
+                    keys = keys.map(key => {
+                        let el = document.createElement('kbd');
+                        el.append(key);
+                        targetEl.appendChild(el);
+                    });
                 }
             }
         }
+        let kbd = document.querySelectorAll('.extension-hotkeys kbd:not(:first-of-type)');
+        for (let i = 0; i < kbd.length; i++) {
+            kbd[i].parentNode.insertBefore(document.createTextNode(' + '), kbd[i]);
+        }
     }
-}
-function wrapElement(el, text) {
-    let toReplace = {
-        $el: el,
-        $text: text
-    }
-    return ("<$el>$text</$el>").replace(/\$el|\$text/gi, matched => toReplace[matched]);
 }

@@ -33,7 +33,7 @@
 
     let contentHTML = await fetch(chrome.runtime.getURL('/content/interface_gallery.html'));
     contentHTML = await contentHTML.text();
-    article.innerHTML += contentHTML;
+    article.appendChild(contentHTML);
     document.body.appendChild(article);
 
 

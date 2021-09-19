@@ -50,7 +50,7 @@
 
     let contentHTML = await fetch(chrome.runtime.getURL('/content/interface.html'));
     contentHTML = await contentHTML.text();
-    article.innerHTML += contentHTML;
+    article.appendChild(contentHTML);
     document.body.appendChild(article);
 
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
