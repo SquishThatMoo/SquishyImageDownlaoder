@@ -50,6 +50,7 @@
 
     let contentHTML = await fetch(chrome.runtime.getURL('/content/interface.html'));
     contentHTML = await contentHTML.text();
+    contentHTML = new DOMParser().parseFromString(contentHTML, "text/html").getElementById("interface");
     article.appendChild(contentHTML);
     document.body.appendChild(article);
 
