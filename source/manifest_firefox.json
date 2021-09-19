@@ -1,7 +1,7 @@
 {
     "name": "Squishy media saver",
     "description": "Saves media in a well-formated way.",
-    "version": "1.3",
+    "version": "1.3.2",
     "manifest_version": 2,
     "permissions": [
         "downloads",
@@ -73,7 +73,8 @@
         "/content/interface.html", 
         "/content/interface_gallery.html",
         "/content/font/*",
-        "/content/css/*"
+        "/content/css/*",
+        "/content/js/*"
     ],
     "browser_specific_settings": {
         "gecko": {
