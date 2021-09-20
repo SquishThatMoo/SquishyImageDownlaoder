@@ -225,3 +225,9 @@ a.mdc-typography--body2:hover {
         color: var(--mdc-theme-primary, #6200ee);
     }
 }
+
+@-moz-document url-prefix() {
+    .content {
+        height: 60vw;
+    }
+}
