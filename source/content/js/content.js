@@ -431,7 +431,7 @@
                             method: 'GET', 
                             headers: headers});
                         tweetContent = await tweetContent.json();
-                        
+                        console.log(tweetContent);
                         let titleNode = authorMain.querySelectorAll('div[dir="auto"][lang="en"] > span');
                         let title = titleNode[0]?.textContent;
 
@@ -446,9 +446,11 @@
                         }
                         for (let i = 0; i < extendedMedia.length; i++) {
                             if (extendedMedia[i].video_info) {
+                                console.log(JSON.stringify(extendedMedia[i].video_info));
                                 let maxUrl = extendedMedia[i].video_info?.variants.reduce((prev, current) => {
-                                    return (prev.bitrate > current.bitrate) ? prev : current
+                                    return (current.bitrate === undefined || prev.bitrate > current.bitrate) ? prev : current;
                                 });
+                                console.log(maxUrl);
                                 result.href = maxUrl.url;
                             } else {
                                 let url = new URL(extendedMedia[i].media_url_https);
