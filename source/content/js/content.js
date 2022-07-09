@@ -38,6 +38,7 @@
     let offset = [];
     let mediaData = [];
     let mediaItem = {};
+    let userItem = {};
     let waitingForUser = false;
     let userTotal = '';
     let userNumeration = '';
@@ -62,6 +63,7 @@
                 
                 loadNextMediaItem();
                 article.classList.remove('hidden');
+                formFields.title.focus();
                 sendResponse('Recevied image data.');
             }
 
@@ -77,6 +79,8 @@
                 let response = ''
                 switch(window.location.hostname) {
                     case "twitter.com":
+                    case "mobile.twitter.com":
+                        console.log("Scraping twitter");
                         scrapeTwitter();
                         response = 'Scraping twitter.';
                         break;
@@ -113,8 +117,13 @@
     function loadNextMediaItem() {
         if (mediaData.length === 0) {
             cancelButton.click();
+            userItem = {};
         } else if (!waitingForUser) {
             mediaItem = mediaData.shift();
+            //Reset for new gallery
+            if (mediaItem.number === 1 || mediaItem.number === '') {
+                userItem = {};
+            }
             setValues(mediaItem);
             waitingForUser = true;
         } 
@@ -167,7 +176,7 @@
 
     let cancelButton = document.getElementById('sq-filename-cancel');
     let continueButton = document.getElementById('sq-filename-continue');
-    updateFileName();
+    updateFileName(gatherValues());
 
     /**Handle buttons */
     cancelButton.addEventListener('click', (e) => {
@@ -194,7 +203,14 @@
         document.getElementById('sq-copy-filename').blur();
         return true;
     });
-    document.addEventListener('keydown', (e) => {
+    document.getElementById('sq-skip-filename').addEventListener('click', e => {
+        waitingForUser = false;
+        this.blur();
+        loadNextMediaItem();
+        return true;
+    });
+
+    document.addEventListener('keydown', e => {
         if (!article.classList.contains('hidden')) {
             switch (e.key) {
                 case 'Escape':
@@ -217,7 +233,7 @@
         } else {
             formFields.author.value = '';
         }
-        updateFileName();
+        updateFileName(gatherValues());
         return true;
     });
     document.getElementById('sq-refresh-title').addEventListener('click', (e) => {
@@ -226,7 +242,7 @@
         } else {
             formFields.title.value = '';
         }
-        updateFileName();
+        updateFileName(gatherValues());
         return true;
     });
 
@@ -234,18 +250,22 @@
     /**Handle file name update */
     numerationNode.addEventListener('change', toggleNumeration);
     titleNode.addEventListener('keyup', (e) => {
-        updateFileName();
+        userItem = gatherValues();
+        updateFileName(userItem);
     });
     fileTotalNode.addEventListener('keyup', (e) => {
         userTotal = formFields.total.value;
-        updateFileName();
+        userItem = gatherValues();
+        updateFileName(userItem);
     });
 
     fileNumberNode.addEventListener('keyup', (e) => {
-        updateFileName();
+        userItem = gatherValues();
+        updateFileName(userItem);
     });
     authorNode.addEventListener('keyup', (e) => {
-        updateFileName();
+        userItem = gatherValues();
+        updateFileName(userItem);     
     });
 
     function reset() {
@@ -266,7 +286,7 @@
         newMediaItem.author = formFields.author.value;
         newMediaItem.title = formFields.title.value;
         newMediaItem.number = formFields.number.value;
-        newMediaItem.total= formFields.total.value;
+        newMediaItem.total = formFields.total.value;
         newMediaItem.addNumber = formFields.enableNumeration.checked;
 
         if (!numerationNode.checked) {
@@ -284,8 +304,8 @@
             $delimiter$: (numerationNode.checked && mediaItem.total !== '') ? settings.filename.delimiter : ''
         };
     }
-    function updateFileName () {
-        let replacementText = mapMediaItemForOutput(gatherValues());
+    function updateFileName(mediaUpdate) {
+        let replacementText = mapMediaItemForOutput(mediaUpdate);
         let fileNameString = settings.filename.pattern;;       
         let pattern = /\$title\$|\$number\$|\$delimiter\$|\$total\$|\$author\$/gi;
 
@@ -299,6 +319,7 @@
     }
 
     function toggleNumeration() {  
+        userNumeration = formFields.enableNumeration.checked;
         if (formFields.enableNumeration.checked) {
             formFields.number.disabled = false;
             formFields.total.disabled = false;
@@ -306,7 +327,7 @@
             formFields.number.disabled = true;
             formFields.total.disabled = true;    
         }
-        updateFileName();
+        updateFileName(gatherValues());
         return true;
     }
 
@@ -315,17 +336,17 @@
             if (mediaItem?.fileType === '' && mediaItem?.href) {
                 mediaItem.fileType = getFileType(mediaItem.href);
             }
-            formFields.title.value = mediaItem?.title;
-            formFields.author.value = mediaItem?.author;
+            formFields.title.value = userItem.title ? userItem.title : mediaItem?.title;
+            formFields.author.value = userItem.author ? userItem.author : mediaItem?.author;
             if (mediaItem?.number !== '') {
                 formFields.number.value = mediaItem.number;
             } else {
                 formFields.number.value = '';
             }
-            if (mediaItem?.total !== '' && userTotal === '') {
-                formFields.total.value = mediaItem.total;
+            if (mediaItem?.total !== '') {
+                formFields.total.value = userItem.total ? userItem.total : mediaItem.total;
             } else if (userTotal !== '') {
-                formFields.total.value = userTotal;
+                formFields.total.value = '';
             }
 
             if (userNumeration === '') {
@@ -343,7 +364,7 @@
             }
             
             toggleNumeration();
-            updateFileName();
+            updateFileName(gatherValues());
         }
         //createFormState({button: true, checkbox: true, textField: true});
     }
@@ -410,11 +431,14 @@
         
         async function process () {
             let authors = document.querySelectorAll('[aria-label^="Timeline:"] [data-testid="tweet"] a[role="link"] div[dir="ltr"] > span');
+            
             for (let j = 0; j < (authors.length < maxReplies ? authors.length : maxReplies); j++) {
                 let authorMain = authors[j].closest('article');
+
                 let tweetId = authorMain.querySelector('[href*="/status/"][role="link"]')?.href,
                     token = getCookie('ct0'), useApi = true,
-                    guestToken = getCookie('gt');
+                    guestToken = getCookie('gt'),
+                    hostname = window.location.hostname;
 
                 if (tweetId !== undefined) {
                     tweetId = new URL(tweetId).pathname.match(/\/status\/(\d+)/g)[0].match(/\d+$/g);
@@ -427,12 +451,12 @@
                             headers.append('x-guest-token', guestToken);
                         }
 
-                        let tweetContent = await fetch(`https://twitter.com/i/api/1.1/statuses/show/${tweetId}.json?tweet_mode=extended`, {
+                        let tweetContent = await fetch(`https://${hostname}/i/api/1.1/statuses/show/${tweetId}.json?tweet_mode=extended`, {
                             method: 'GET', 
                             headers: headers});
                         tweetContent = await tweetContent.json();
-                        console.log(tweetContent);
-                        let titleNode = authorMain.querySelectorAll('div[dir="auto"][lang="en"] > span');
+
+                        let titleNode = authorMain.querySelectorAll('div[dir="auto"][lang="en"] > span, div[dir="auto"][lang] > span');
                         let title = titleNode[0]?.textContent;
 
                         let result = {
@@ -446,15 +470,19 @@
                         }
                         for (let i = 0; i < extendedMedia.length; i++) {
                             if (extendedMedia[i].video_info) {
-                                console.log(JSON.stringify(extendedMedia[i].video_info));
                                 let maxUrl = extendedMedia[i].video_info?.variants.reduce((prev, current) => {
                                     return (current.bitrate === undefined || prev.bitrate > current.bitrate) ? prev : current;
                                 });
-                                console.log(maxUrl);
+
                                 result.href = maxUrl.url;
                             } else {
                                 let url = new URL(extendedMedia[i].media_url_https);
+                                result.fileType = getFileType(url);
+
+                                url.searchParams.set('format', result.fileType);
                                 url.searchParams.set('name', 'orig');
+                                
+                                url.hostname = url.hostname.replace(`.${result.fileType}`, '');
 
                                 result.href = url.href;
                                 if (extendedMedia.length > 1) {
@@ -477,7 +505,7 @@
 
                 //Fallback in case API is failing
                 if (!useApi) {            
-                    let titleNode = authorMain.querySelectorAll('div[dir="auto"][lang="en"] > span');
+                    let titleNode = authorMain.querySelectorAll('div[dir="auto"][lang="en"] > span, div[dir="auto"][lang] > span');
                     titleNode = titleNode.length != 0 ? titleNode : authorMain.querySelectorAll('div[dir="auto"][lang] > span:only-of-type');
                     let imageNode = authorMain.querySelectorAll('[data-testid="tweetPhoto"] img');
                     
@@ -541,7 +569,12 @@
             let deviationURL = new URL('https://www.deviantart.com/_napi/da-user-profile/shared_api/deviation/extended_fetch');
             let result = {}
 
-            if (deviationID !== NaN) {
+            if (isNaN(deviationID)) {
+                let path = window.location.pathname;
+                deviationID = path.match(/\d+$/g)[0] || NaN;
+            }
+
+            if (!isNaN(deviationID)) {
                 let params = {type: 'art', deviationid: deviationID};
                 Object.keys(params).forEach(key => deviationURL.searchParams.append(key, params[key]));
 
@@ -575,16 +608,28 @@
         }
 
         function createFullURL(media) {
-            if (media !== undefined || media.length > 0)  {
-                let url = new URL(media.baseUri);
-                let subpathObject = media.types.filter(type => type.t === 'fullview');
-                if (subpathObject.c) {
-                    let subpath = subpathObject.c.replace('<prettyName>', media.prettyName);
-                    url.pathname += subpath;
-                }
-                url.searchParams.append('token', media.token[0])
-                return url.href;
+            if (media === undefined || media.length === 0) {
+                return;
             }
+
+            let url = new URL(media.baseUri);
+            let subpathObject = media.types.filter(type => type.t === 'gif')?.[0] 
+                || media.types.filter(type => type.t === 'fullview')?.[0]
+                || media.types.pop();
+            if (subpathObject.t === 'gif' && subpathObject.b) {
+                url = new URL(subpathObject.b);
+            }
+
+            if (subpathObject.c) {
+                let subpath = subpathObject.c.replace('<prettyName>', media.prettyName);
+
+                if (subpathObject.c[0] !== '/') {
+                    url.pathname += '/';
+                }
+                url.pathname += subpath;
+            }
+            url.searchParams.append('token', media.token[0])
+            return url.href;
         }
     }
 
