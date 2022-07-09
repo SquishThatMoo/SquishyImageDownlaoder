@@ -205,6 +205,10 @@ window.onload = async () => {
                 isValid = true;
                 currentSettings.scraping.saucenao.enableRedirect = checkboxes.saucenao.enableRedirect.checked;
                 break;
+            case 'twitter-tweet-limiter':
+                isValid = Number.isInteger(Number(textFields.twitter.tweetCount.value));
+                currentSettings.scraping.twitter.tweetCount = Number(textFields.twitter.tweetCount.value);
+                break;
             default:
                 break;
         }

@@ -74,6 +74,7 @@ squishImageSaver = (async () => {
                     switch (domain) {
                         case "www.deviantart.com":
                         case "twitter.com":
+                        case "mobile.twitter.com":
                         case "www.furaffinity.net":
                         case "e621.net":
                         case "www.hentai-foundry.com":
@@ -142,7 +143,6 @@ squishImageSaver = (async () => {
                 console.log(squishImageSaver);
                 if (squishImageSaver?.mediaData) {
                     let mediaItem = validateMediaData(squishImageSaver.mediaData);
-                    console.log(!(squishImageSaver.mediaData?.notSupported === true),!squishImageSaver.mediaData?.notSupported );
                     response += `Received media data #${received}.`;
 
                     if (!(squishImageSaver.mediaData?.notSupported === true) && (!openEditor || squishImageSaver?.finalDownload)) {
@@ -277,7 +277,7 @@ squishImageSaver = (async () => {
         try {
             if (href !== undefined || href !== '') {
                 let parsed = new URL(href);
-                return parsed.pathname.match(/\.([\w]){1,}$/gi)[0].replace('.', '').trim();
+                return parsed.pathname.match(/\.([\w]){1,}$/gi)?.[0].replace('.', '').trim() || '';
             }
         } catch (e) {
             console.log(e, href);

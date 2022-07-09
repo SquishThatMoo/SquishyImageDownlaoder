@@ -33,7 +33,7 @@
             }
         }
     };
-  
+
     let isDown = false;
     let offset = [];
     let mediaData = [];
@@ -42,12 +42,14 @@
     let waitingForUser = false;
     let userTotal = '';
     let userNumeration = '';
-    let downloadInExtension = true; 
+    let downloadInExtension = true;
+    let mediaSearchOffset = 0;
+    let storedUserChange = false;
 
     let article = document.createElement("article");
     article.id = 'interface-query';
     article.classList = ["mdc-typography--body2 interface-card.mdc-card hidden"];
-    
+
 
     let contentHTML = await fetch(chrome.runtime.getURL('/content/interface.html'));
     contentHTML = await contentHTML.text();
@@ -55,16 +57,17 @@
     article.appendChild(contentHTML);
     document.body.appendChild(article);
 
+
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (sender.id === id && request?.squishImageSaver) {
             if (request.squishImageSaver?.mediaData) {
 
                 mediaData.push(request?.squishImageSaver?.mediaData);
-                
+
                 loadNextMediaItem();
                 article.classList.remove('hidden');
                 formFields.title.focus();
-                sendResponse('Recevied image data.');
+                sendResponse('Received image data.');
             }
 
             if (request.squishImageSaver.downloadInExtension !== undefined) {
@@ -72,15 +75,17 @@
             }
 
             if (request.squishImageSaver?.scrape) {
+                storedUserChange = false;
+
                 if (request.squishImageSaver.settings) {
                     settings = request.squishImageSaver.settings;
                 }
                 switchDarkModes(article, settings.general.darkmode);
                 let response = ''
-                switch(window.location.hostname) {
+                switch (window.location.hostname) {
                     case "twitter.com":
                     case "mobile.twitter.com":
-                        console.log("Scraping twitter");
+                        mediaSearchOffset = 0;
                         scrapeTwitter();
                         response = 'Scraping twitter.';
                         break;
@@ -100,7 +105,7 @@
                         scrapeHentaiFoundry();
                         response = 'Scraping Hentai Foundry.';
                         break;
-                    case "saucenao.com/":
+                    case "saucenao.com":
                         scrapeSauceNao(request.squishImageSaver?.href);
                         response = 'Inserting search url in sauce nao.';
                         break;
@@ -116,17 +121,17 @@
     })
     function loadNextMediaItem() {
         if (mediaData.length === 0) {
+            if (window.location.hostname === 'twitter.com' || window.location.hostname === 'mobile.twitter.com') {
+                scrapeTwitter();
+            }
             cancelButton.click();
-            userItem = {};
+
         } else if (!waitingForUser) {
             mediaItem = mediaData.shift();
-            //Reset for new gallery
-            if (mediaItem.number === 1 || mediaItem.number === '') {
-                userItem = {};
-            }
+
             setValues(mediaItem);
             waitingForUser = true;
-        } 
+        }
     }
 
     /**Handle window movement - limit to headline or usability is shit */
@@ -137,21 +142,21 @@
             article.offsetLeft - e.clientX,
             article.offsetTop - e.clientY
         ];
-        
+
     }, true);
 
-    document.addEventListener('mouseup', () =>  {
+    document.addEventListener('mouseup', () => {
         isDown = false;
     }, true);
 
     document.addEventListener('mousemove', event => {
         if (isDown) {
             let mousePosition = {
-                x : event.clientX,
-                y : event.clientY
+                x: event.clientX,
+                y: event.clientY
             };
             article.style.left = (mousePosition.x + offset[0]) + 'px';
-            article.style.top  = (mousePosition.y + offset[1]) + 'px';
+            article.style.top = (mousePosition.y + offset[1]) + 'px';
         }
     }, true);
 
@@ -176,18 +181,20 @@
 
     let cancelButton = document.getElementById('sq-filename-cancel');
     let continueButton = document.getElementById('sq-filename-continue');
+    let saveButton = document.getElementById('sq-save-input');
+
     updateFileName(gatherValues());
 
     /**Handle buttons */
-    cancelButton.addEventListener('click', (e) => {
+    cancelButton.addEventListener('click', e => {
         reset();
         article.classList.add('hidden');
     });
 
-    continueButton.addEventListener('click', (e) => {
+    continueButton.addEventListener('click', e => {
         if (mediaItem !== undefined && mediaItem != null && Object.keys(mediaItem).length !== 0 && !(mediaItem?.notSupported === true)) {
             mediaItem = gatherValues();
-            sendToBackend({mediaData: mediaItem, downloadInExtension: downloadInExtension, finalDownload: true});
+            sendToBackend({ mediaData: mediaItem, downloadInExtension: downloadInExtension, finalDownload: true });
 
             waitingForUser = false;
             continueButton.blur();
@@ -196,6 +203,10 @@
         } else if (mediaItem?.notSupported) {
             cancelButton.click();
         }
+    });
+    saveButton.addEventListener('click', e => {
+        storedUserChange = true;
+        saveButton.blur();
     });
 
     document.getElementById('sq-copy-filename').addEventListener('click', (e) => {
@@ -220,7 +231,7 @@
                     continueButton.click();
                     break;
                 default:
-                    break;   
+                    break;
             }
         }
 
@@ -265,7 +276,7 @@
     });
     authorNode.addEventListener('keyup', (e) => {
         userItem = gatherValues();
-        updateFileName(userItem);     
+        updateFileName(userItem);
     });
 
     function reset() {
@@ -306,7 +317,7 @@
     }
     function updateFileName(mediaUpdate) {
         let replacementText = mapMediaItemForOutput(mediaUpdate);
-        let fileNameString = settings.filename.pattern;;       
+        let fileNameString = settings.filename.pattern;;
         let pattern = /\$title\$|\$number\$|\$delimiter\$|\$total\$|\$author\$/gi;
 
         fileNameString = fileNameString.replace(pattern, matched => replacementText[matched]);
@@ -318,59 +329,65 @@
         resultNode.textContent = fileNameString.replace(/[/\\?%*:"<>~]/g, '').replace(/\r?\n|\r|\t|\s+/g, ' ').trim();
     }
 
-    function toggleNumeration() {  
+    function toggleNumeration() {
         userNumeration = formFields.enableNumeration.checked;
         if (formFields.enableNumeration.checked) {
             formFields.number.disabled = false;
             formFields.total.disabled = false;
         } else {
             formFields.number.disabled = true;
-            formFields.total.disabled = true;    
+            formFields.total.disabled = true;
         }
         updateFileName(gatherValues());
         return true;
     }
 
     function setValues(mediaItem) {
-        if (mediaItem !== undefined && mediaItem != null) {
-            if (mediaItem?.fileType === '' && mediaItem?.href) {
-                mediaItem.fileType = getFileType(mediaItem.href);
-            }
-            formFields.title.value = userItem.title ? userItem.title : mediaItem?.title;
-            formFields.author.value = userItem.author ? userItem.author : mediaItem?.author;
-            if (mediaItem?.number !== '') {
-                formFields.number.value = mediaItem.number;
-            } else {
-                formFields.number.value = '';
-            }
-            if (mediaItem?.total !== '') {
-                formFields.total.value = userItem.total ? userItem.total : mediaItem.total;
-            } else if (userTotal !== '') {
-                formFields.total.value = '';
-            }
-
-            if (userNumeration === '') {
-                if (mediaItem?.number || mediaItem?.total) {
-                    formFields.enableNumeration.checked = true;
-                } else {
-                    formFields.enableNumeration.checked = false;
-                }
-            } else {
-                if (userNumeration) {
-                    formFields.enableNumeration.checked = true;
-                } else {
-                    formFields.enableNumeration.checked = false;
-                }
-            }
-            
-            toggleNumeration();
-            updateFileName(gatherValues());
+        if (mediaItem === undefined || mediaItem == null) {
+            return false;
         }
+
+        if (mediaItem?.fileType === '' && mediaItem?.href) {
+            mediaItem.fileType = getFileType(mediaItem.href);
+        }
+        formFields.title.value = storedUserChange ? userItem.title : mediaItem?.title;
+        formFields.author.value = storedUserChange ? userItem.author : mediaItem?.author;
+        if (mediaItem?.number !== '') {
+            formFields.number.value = mediaItem.number;
+        } else {
+            formFields.number.value = '';
+        }
+        if (mediaItem?.total !== '') {
+            formFields.total.value = storedUserChange ? userItem.total : mediaItem.total;
+        } else if (userTotal !== '') {
+            formFields.total.value = '';
+        }
+        if (storedUserChange && userItem.total !== 0) {
+            formFields.total.value = userItem.total;
+        }
+
+        if (userNumeration === '') {
+            if (mediaItem?.number || mediaItem?.total || userItem?.total) {
+                formFields.enableNumeration.checked = true;
+            } else {
+                formFields.enableNumeration.checked = false;
+            }
+        } else {
+            if (userNumeration) {
+                formFields.enableNumeration.checked = true;
+            } else {
+                formFields.enableNumeration.checked = false;
+            }
+        }
+
+        toggleNumeration();
+        updateFileName(gatherValues());
+
         //createFormState({button: true, checkbox: true, textField: true});
     }
 
     /**Helper functions */
-    function getFileType (href) {
+    function getFileType(href) {
         if (href !== undefined || href !== '') {
             let parsed = new URL(href);
             return parsed.pathname.match(/\.([\w]){1,}$/gi)[0].replace('.', '').trim();
@@ -384,10 +401,10 @@
         return Math.random() * (max - min) + min;
     }
     function sendToBackend(payload) {
-        chrome.runtime.sendMessage(id, {squishImageSaver: payload});
+        chrome.runtime.sendMessage(id, { squishImageSaver: payload });
     }
     function switchDarkModes(contentNode, behavior) {
-        switch(behavior.toLowerCase()) {
+        switch (behavior.toLowerCase()) {
             case 'off':
                 contentNode?.classList.remove('dark-auto');
                 contentNode?.classList.remove('dark-mode');
@@ -414,30 +431,189 @@
     Scrape section
     */
     async function scrapeTwitter() {
-        let maxReplies = settings.scraping.twitter.tweetCount || 2;
+        let maxTweets = settings.scraping.twitter.tweetCount || 2;
+
         //automatically close gallery viewer - html is pruned
         let imageViewer = document.querySelectorAll('[role="presentation"] [aria-label][tabindex="0"][role="button"]');
+        let token = '';
+        let guestToken = '';
+
         if (imageViewer.length !== 0) {
-            document.addEventListener('DOMNodeInserted', wait, {once: true});
+            document.addEventListener('DOMNodeInserted', wait, { once: true });
             imageViewer[0].click()
         } else {
             process();
         }
         //wait until page is fully changed
-        async function wait () {
+        async function wait() {
             await setTimeout(process, 250);
         }
-        
-        
-        async function process () {
+
+
+        async function process() {
+            let useApi = true;
+
+            const tweet = setup();
+
+            if (tweet === undefined) {
+                return false;
+            }
+
+            try {
+                useApi = await processWithApi(tweet);
+            } catch (e) {
+                console.log(e);
+                useApi = false;
+            }
+
+            if (!useApi) {
+                processNoApi(tweet);
+            }
+        }
+
+        function setup() {
+            token = getCookie('ct0');
+            guestToken = getCookie('gt');
+
+            let tweets = Array.from(document.querySelectorAll('[aria-label^="Timeline:"] [data-testid="tweet"]'))
+                .filter(element => {
+                    if (element.querySelector('[data-testid="tweetPhoto"], [data-testid="videoPlayer"]') == null) {
+                        return false;
+                    } else {
+                        return true;
+                    }
+                }).splice(mediaSearchOffset, maxTweets - mediaSearchOffset++);
+
+            return tweets?.[0];
+        }
+
+        async function processWithApi(tweet) {
+            if (token === undefined) {
+                return false;
+            }
+
+            let tweetId = tweet.querySelector('[href*="/status/"][role="link"]')?.href;
+
+            if (tweetId === undefined) {
+                return false;
+            }
+            tweetId = new URL(tweetId).pathname.match(/\/status\/(\d+)/g)[0].match(/\d+$/g);
+
+            let hostname = window.location.hostname;
+
+            let headers = new Headers({ 'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA', 'x-csrf-token': token });
+            if (guestToken) {
+                headers.append('x-guest-token', guestToken);
+            }
+
+            let tweetContent = await fetch(`https://${hostname}/i/api/1.1/statuses/show/${tweetId}.json?tweet_mode=extended`, {
+                method: 'GET',
+                headers: headers
+            });
+            tweetContent = await tweetContent.json();
+
+            let titleNode = tweet.querySelectorAll('div[dir="auto"][lang="en"]');
+            if (titleNode.length === 0) {
+                titleNode = tweet.querySelectorAll('div[dir="auto"][lang]');
+            }
+
+            let result = {
+                author: tweetContent.user.screen_name,
+                title: titleNode[0]?.querySelector('span').textContent
+            }
+
+            let extendedMedia = tweetContent?.extended_entities?.media;
+            if (extendedMedia === undefined) {
+                return false;
+            }
+
+            for (let i = 0; i < extendedMedia.length; i++) {
+                if (extendedMedia[i].video_info) {
+                    let maxUrl = extendedMedia[i].video_info?.variants.reduce((prev, current) => {
+                        return (current.bitrate === undefined || prev.bitrate > current.bitrate) ? prev : current;
+                    });
+
+                    result.href = maxUrl.url;
+                } else {
+                    let url = new URL(extendedMedia[i].media_url_https);
+                    result.fileType = getFileType(url);
+
+                    url.searchParams.set('format', result.fileType);
+                    url.searchParams.set('name', 'orig');
+
+                    url.hostname = url.hostname.replace(`.${result.fileType}`, '');
+
+                    result.href = url.href;
+                    if (extendedMedia.length > 1) {
+                        result.number = i + 1;
+                        result.total = extendedMedia.length;
+                        result.addNumber = true;
+                    }
+                }
+                sendToBackend({ mediaData: result, downloadInExtension: true });
+                await timeout(50);
+            }
+            return true;
+
+        }
+        async function processNoApi(tweet) {
+            let titleNode = tweet.querySelectorAll('div[dir="auto"][lang="en"]');
+            if (titleNode.length === 0) {
+                titleNode = tweet.querySelectorAll('div[dir="auto"][lang]');
+            }
+
+            let imageNode = tweet.querySelectorAll('[data-testid="tweetPhoto"] img');
+
+            let result = {
+                author: tweet.querySelector('a[role="link"] div[dir="ltr"] > span').textContent.replace(/[\@]/g, ''),
+                title: titleNode[0]?.querySelector('span').textContent
+            };
+
+            let videoNode = tweet.querySelectorAll('[data-testid="videoPlayer"] video[aria-label]');
+
+            //creates filename for video elements - should be user controlled later
+            if (videoNode.length !== 0) {
+                if (document.getElementById('squish-filename') == null) {
+                    let src = videoNode[0].src;
+
+                    if (new URL(src).protocol !== 'blob:') {
+                        result.href = src;
+                        result.fileType = getFileType(src);
+                        result.addNumber = false;
+                        sendToBackend({ mediaData: result, downloadInExtension: true });
+                    } else {
+                        result.notSupported = true;
+                        sendToBackend({ mediaData: result, downloadInExtension: true });
+                    }
+                }
+            }
+
+            for (let i = 0; i < imageNode.length; i++) {
+                //todo - handle galleries
+                let url = new URL(imageNode[i].src);
+                url.searchParams.set('name', 'orig');
+                let fileType = url.searchParams.get('format');
+
+                result.href = url.href;
+                result.fileType = fileType;
+                if (imageNode.length > 1) {
+                    result.number = i + 1;
+                    result.total = imageNode.length;
+                    result.addNumber = true;
+                }
+                sendToBackend({ mediaData: result, downloadInExtension: true });
+                await timeout(50);
+            }
+        }
+
+        async function processOld() {
             let authors = document.querySelectorAll('[aria-label^="Timeline:"] [data-testid="tweet"] a[role="link"] div[dir="ltr"] > span');
-            
-            for (let j = 0; j < (authors.length < maxReplies ? authors.length : maxReplies); j++) {
+
+            for (let j = 0; j < (authors.length < maxTweets ? authors.length : maxTweets); j++) {
                 let authorMain = authors[j].closest('article');
 
                 let tweetId = authorMain.querySelector('[href*="/status/"][role="link"]')?.href,
-                    token = getCookie('ct0'), useApi = true,
-                    guestToken = getCookie('gt'),
+                    useApi = true,
                     hostname = window.location.hostname;
 
                 if (tweetId !== undefined) {
@@ -446,14 +622,15 @@
 
                 if (tweetId !== undefined && token !== undefined && token != null) {
                     try {
-                        let headers = new Headers({'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA', 'x-csrf-token':token});
+                        let headers = new Headers({ 'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA', 'x-csrf-token': token });
                         if (guestToken) {
                             headers.append('x-guest-token', guestToken);
                         }
 
                         let tweetContent = await fetch(`https://${hostname}/i/api/1.1/statuses/show/${tweetId}.json?tweet_mode=extended`, {
-                            method: 'GET', 
-                            headers: headers});
+                            method: 'GET',
+                            headers: headers
+                        });
                         tweetContent = await tweetContent.json();
 
                         let titleNode = authorMain.querySelectorAll('div[dir="auto"][lang="en"] > span, div[dir="auto"][lang] > span');
@@ -481,43 +658,43 @@
 
                                 url.searchParams.set('format', result.fileType);
                                 url.searchParams.set('name', 'orig');
-                                
+
                                 url.hostname = url.hostname.replace(`.${result.fileType}`, '');
 
                                 result.href = url.href;
                                 if (extendedMedia.length > 1) {
-                                    result.number = i+1;
+                                    result.number = i + 1;
                                     result.total = extendedMedia.length;
                                     result.addNumber = true;
-                                }         
+                                }
                             }
-                            sendToBackend({mediaData: result, downloadInExtension: true});
+                            sendToBackend({ mediaData: result, downloadInExtension: true });
                             await timeout(50);
                         }
 
                     } catch (e) {
                         console.log(e);
                         useApi = false;
-                    }   
+                    }
                 } else {
                     useApi = false;
                 }
 
                 //Fallback in case API is failing
-                if (!useApi) {            
+                if (!useApi) {
                     let titleNode = authorMain.querySelectorAll('div[dir="auto"][lang="en"] > span, div[dir="auto"][lang] > span');
                     titleNode = titleNode.length != 0 ? titleNode : authorMain.querySelectorAll('div[dir="auto"][lang] > span:only-of-type');
                     let imageNode = authorMain.querySelectorAll('[data-testid="tweetPhoto"] img');
-                    
+
                     let title = titleNode[0]?.textContent;
 
                     let result = {
                         author: authors[j].textContent.replace(/[\@]/g, ''),
                         title: title
-                    };   
+                    };
 
                     let videoNode = authorMain.querySelectorAll('[data-testid="videoPlayer"] video[aria-label]');
-                    
+
                     //creates filename for video elements - should be user controlled later
                     if (videoNode.length !== 0) {
                         if (document.getElementById('squish-filename') == null) {
@@ -527,11 +704,11 @@
                                 result.href = src;
                                 result.fileType = getFileType(src);
                                 result.addNumber = false;
-                                sendToBackend({mediaData: result, downloadInExtension: true});
+                                sendToBackend({ mediaData: result, downloadInExtension: true });
                             } else {
                                 result.notSupported = true;
-                                sendToBackend({mediaData: result, downloadInExtension: true});
-                            }                      
+                                sendToBackend({ mediaData: result, downloadInExtension: true });
+                            }
                         }
                     }
 
@@ -540,29 +717,29 @@
                         let url = new URL(imageNode[i].src);
                         url.searchParams.set('name', 'orig');
                         let fileType = url.searchParams.get('format');
-                        
+
                         result.href = url.href;
                         result.fileType = fileType;
                         if (imageNode.length > 1) {
-                            result.number = i+1;
+                            result.number = i + 1;
                             result.total = imageNode.length;
                             result.addNumber = true;
                         }
-                        sendToBackend({mediaData: result, downloadInExtension: true});
+                        sendToBackend({ mediaData: result, downloadInExtension: true });
                         await timeout(50);
                     }
                 }
-                
+
             }
 
-                
-            
+
+
         }
 
     }
-    
+
     async function scrapeDeviantArt() {
-        let artStage = document.querySelectorAll('[data-hook="art_stage"]')        
+        let artStage = document.querySelectorAll('[data-hook="art_stage"]')
         //only do stuff if it is an art page
         if (artStage.length !== 0) {
             let deviationID = parseInt(document.querySelector('[data-itemid]')?.getAttribute('data-itemid'));
@@ -575,36 +752,36 @@
             }
 
             if (!isNaN(deviationID)) {
-                let params = {type: 'art', deviationid: deviationID};
+                let params = { type: 'art', deviationid: deviationID };
                 Object.keys(params).forEach(key => deviationURL.searchParams.append(key, params[key]));
 
-                let galleryContent = await fetch(deviationURL, {method: 'GET'});
+                let galleryContent = await fetch(deviationURL, { method: 'GET' });
                 galleryContent = await galleryContent.json();
 
                 result = {
                     author: galleryContent?.deviation?.author?.username,
                     title: galleryContent?.deviation?.title,
                     href: createFullURL(galleryContent?.deviation?.media)
-                } 
+                }
 
                 if (settings.scraping.deviantart.buttonDownload && galleryContent?.deviation.isDownloadable) {
                     let downloadNode = document.querySelector('a[data-hook="download_button"], button[data-hook="download_button"]');
                     result.href = downloadNode.href || galleryContent?.extended?.download?.url || result.href;
                 }
-               
+
             } else {
                 let authorNode = document.querySelector('div [data-hook="deviation_meta"] a');
                 let titleNode = document.querySelector('h1[data-hook="deviation_title"]');
                 let imageNode = document.querySelector('[data-hook="art_stage"] img');
                 let videoNode = document.querySelector('video');
-                
+
                 result = {
                     author: authorNode.getAttribute('title'),
                     title: titleNode.textContent,
                     href: imageNode?.src || videoNode?.src
-                };   
-            } 
-            sendToBackend({mediaData: result, downloadInExtension: true});                          
+                };
+            }
+            sendToBackend({ mediaData: result, downloadInExtension: true });
         }
 
         function createFullURL(media) {
@@ -613,7 +790,7 @@
             }
 
             let url = new URL(media.baseUri);
-            let subpathObject = media.types.filter(type => type.t === 'gif')?.[0] 
+            let subpathObject = media.types.filter(type => type.t === 'gif')?.[0]
                 || media.types.filter(type => type.t === 'fullview')?.[0]
                 || media.types.pop();
             if (subpathObject.t === 'gif' && subpathObject.b) {
@@ -635,34 +812,34 @@
 
     async function scrapeFurAffinity() {
         let artStage = document.querySelectorAll('.submission-content')
-    
+
         //only do stuff if it is an art page
         if (artStage.length !== 0) {
             let authorNode = document.querySelector('.submission-title + a');
             let titleNode = document.querySelector('.submission-title>h2>p');
             let imageNode = document.querySelector('#submissionImg');
-    
+
             let result = {
                 author: authorNode.textContent,
                 title: titleNode.textContent,
                 href: new URL('https:' + imageNode.getAttribute('data-fullview-src'))
-            };        
-            
-            sendToBackend({mediaData: result, downloadInExtension: true});  
+            };
+
+            sendToBackend({ mediaData: result, downloadInExtension: true });
         }
     }
 
     async function scrapee621() {
         let artStage = document.querySelectorAll('#image-container')
-    
+
         //only do stuff if it is an art page
         if (artStage.length !== 0) {
-            let authorNodes = document.querySelectorAll('[itemprop="author"]');              
+            let authorNodes = document.querySelectorAll('[itemprop="author"]');
             let propGeneralNodes = document.querySelectorAll('.general-tag-list a.search-tag');
             let propSpeciesNodes = document.querySelectorAll('.species-tag-list a.search-tag');
             let propCharacterNodes = document.querySelectorAll('.character-tag-list a.search-tag');
             let imageNode = document.querySelector('#image-resize-link');
-    
+
             let title = '';
             if (settings.scraping.e621.addCharacter) {
                 title = customStringConcat(propCharacterNodes, ' ');
@@ -682,9 +859,9 @@
                 author: customStringConcat(authorNodes, ' '),
                 title: title,
                 href: imageNode.href
-            };        
-    
-            sendToBackend({mediaData: result, downloadInExtension: true});  
+            };
+
+            sendToBackend({ mediaData: result, downloadInExtension: true });
         }
         function customStringConcat(nodeArray, del) {
             let result = '';
@@ -697,36 +874,36 @@
 
     async function scrapeHentaiFoundry() {
         let artStage = document.querySelectorAll('#picBox');
-    
+
         //only do stuff if it is an art page
         if (artStage.length !== 0) {
-            let authorNode = document.querySelector('#picBox .boxtitle a');            
+            let authorNode = document.querySelector('#picBox .boxtitle a');
             let titleNode = document.querySelector('#picBox h2.titleSemantic');
             let imageNode = document.querySelector('#picBox .boxbody img');
-    
+
             let result = {
                 author: authorNode.textContent,
                 title: titleNode.textContent,
                 href: imageNode.src
-            };        
-            sendToBackend({mediaData: result, downloadInExtension: true});  
+            };
+            sendToBackend({ mediaData: result, downloadInExtension: true });
         }
-    }   
- 
+    }
+
     async function scrapeSauceNao(href) {
         if (document.getElementById('searchForm') && href !== undefined) {
             let input = document.getElementById('urlInput');
 
             input.focus();
-            await timeout(getRandomArbitrary(50,250));
+            await timeout(getRandomArbitrary(50, 250));
             input.value = href;
-            await timeout(getRandomArbitrary(50,250));
+            await timeout(getRandomArbitrary(50, 250));
             input.blur();
-            await timeout(getRandomArbitrary(25,100));
+            await timeout(getRandomArbitrary(25, 100));
             document.getElementById('searchButton').click();
         }
-    }   
+    }
 
-    sendToBackend({pageReady: true});
+    sendToBackend({ pageReady: true });
 
 })();

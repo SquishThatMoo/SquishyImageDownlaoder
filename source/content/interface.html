@@ -11,7 +11,7 @@
     <label class="mdc-text-field mdc-text-field--filled mdc-ripple-surface" id="mdc-filename-title" style="width: 100%">
       <span class="mdc-text-field__ripple"></span>
       <span class="mdc-floating-label" for="sq-filename-title">Artwork title</span>
-      <input class="mdc-text-field__input" type="text" id="sq-filename-title" aria-labelledby="sq-filename-title">
+      <input class="mdc-text-field__input" type="text" id="sq-filename-title" aria-labelledby="sq-filename-title" tabindex="0">
       <i class="material-icons mdc-text-field__icon mdc-text-field__icon--trailing" id="sq-refresh-title" tabindex="0" role="button">refresh</i>
       <span class="mdc-line-ripple"></span>
     </label>
@@ -66,6 +66,16 @@
       <span class="mdc-button__ripple"></span>
       <i class="material-icons mdc-button__icon" aria-hidden="true">content_copy</i>
       <span class="mdc-button__label">Copy</span>
+    </button>
+    <button class="mdc-button mdc-button--outlined mdc-card__actions--button mdc-ripple-surface interfaceButton" type="button" id="sq-skip-filename">
+      <span class="mdc-button__ripple"></span>
+      <i class="material-icons mdc-button__icon" aria-hidden="true">skip_next</i>
+      <span class="mdc-button__label">Skip</span>
+    </button>
+    <button class="mdc-button mdc-button--outlined mdc-card__actions--button mdc-ripple-surface interfaceButton" type="button" id="sq-save-input">
+      <span class="mdc-button__ripple"></span>
+      <i class="material-icons mdc-button__icon" aria-hidden="true">sync_alt</i>
+      <span class="mdc-button__label">Save</span>
     </button>
     <button class="mdc-button mdc-button--outlined mdc-card__actions--button mdc-ripple-surface interfaceButton" type="button" id="sq-filename-continue">
       <span class="mdc-button__ripple"></span>
